@@ -1,0 +1,12 @@
+wandb
+datasets
+bertopic
+pandas
+litellm
+openai
+torch
+scikit-learn
+transformers
+sentence-transformers
+
+        
