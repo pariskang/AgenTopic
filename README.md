@@ -50,11 +50,9 @@ Provide detailed instructions on how to use the project, including examples and 
 
 ## Psoriasis Literature Dataset
 
-This project utilizes the psoriasis literature dataset from [psknlr.github.io](https://psknlr.github.io). Below is a live embed of the dataset:
+This project utilizes the psoriasis literature dataset from [psknlr.github.io](https://psknlr.github.io). 
 
-<iframe src="https://psknlr.github.io" width="100%" height="500px"></iframe>
-
-*Note: GitHub README files do not support iframe embeds. To view the dataset, please visit [psknlr.github.io](https://psknlr.github.io) directly.*
+*Note: To view and search the dataset, please visit [psknlr.github.io](https://psknlr.github.io) directly.*
 
 ## Contributing
 
