@@ -46,7 +46,9 @@ pip install -r requirements.txt
 
 ## Usage
 
-Provide detailed instructions on how to use the project, including examples and command-line usage.
+```bash
+python main.py
+```
 
 ## Psoriasis Literature Dataset
 
