@@ -3,6 +3,8 @@ import numpy as np
 from litellm import completion
 import src.config as config
 from bertopic import BERTopic
+from sentence_transformers import SentenceTransformer
+
 
 def generate_topic_summaries(topic_model):
     topic_summaries = {}
