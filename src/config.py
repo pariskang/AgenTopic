@@ -14,7 +14,7 @@ DATA_FILE_PATH = 'data/psoriasis_papers_cleaned.xlsx'
 FINAL_DATA_FILE = 'data_with_final_topics.xlsx'
 
 # Embedding model name
-EMBEDDING_MODEL_NAME = 'all-MiniLM-L6-v2'
+EMBEDDING_MODEL_NAME = 'sentence-transformers/all-MiniLM-L6-v2'
 
 # Number of iterations for refinement
 NUM_ITERATIONS = 3
