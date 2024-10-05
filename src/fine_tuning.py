@@ -1,3 +1,5 @@
+# src/fine_tuning.py
+
 import os
 import numpy as np
 import torch
@@ -9,22 +11,10 @@ from transformers import (
 )
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
-class TopicDataset(torch.utils.data.Dataset):
-    def __init__(self, encodings, labels):
-        self.encodings = encodings
-        self.labels = labels
-
-    def __getitem__(self, idx):
-        item = {
-            key: torch.tensor(val[idx]) for key, val in self.encodings.items()
-        }
-        item['labels'] = torch.tensor(self.labels[idx])
-        return item
-
-    def __len__(self):
-        return len(self.labels)
-
 def fine_tune_model(iteration, model_name, train_texts, train_labels, test_texts, test_labels, num_labels):
+    """
+    Fine-tunes a pre-trained model for sequence classification.
+    """
     # Load pre-trained model and tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -32,28 +22,26 @@ def fine_tune_model(iteration, model_name, train_texts, train_labels, test_texts
         num_labels=num_labels
     )
 
-    # Create datasets
-    train_encodings = tokenizer(train_texts, truncation=True, padding=True)
-    test_encodings = tokenizer(test_texts, truncation=True, padding=True)
-    train_dataset = TopicDataset(train_encodings, train_labels)
-    eval_dataset = TopicDataset(test_encodings, test_labels)
+    # Tokenize the datasets
+    train_encodings = tokenizer(train_texts, truncation=True, padding=True, return_tensors="pt")
+    test_encodings = tokenizer(test_texts, truncation=True, padding=True, return_tensors="pt")
 
-    # Define training arguments
-    output_dir = f'./results_iteration_{iteration}'
-    logging_dir = f'./logs_iteration_{iteration}'
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        num_train_epochs=10,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        warmup_steps=100,
-        evaluation_strategy='epoch',
-        save_strategy='epoch',
-        logging_dir=logging_dir,
-        load_best_model_at_end=True,
-        metric_for_best_model='accuracy',
-        greater_is_better=True,
-    )
+    # Create PyTorch datasets
+    class ClassificationDataset(torch.utils.data.Dataset):
+        def __init__(self, encodings, labels):
+            self.encodings = encodings
+            self.labels = labels
+
+        def __getitem__(self, idx):
+            item = {key: val[idx] for key, val in self.encodings.items()}
+            item['labels'] = torch.tensor(self.labels[idx], dtype=torch.long)
+            return item
+
+        def __len__(self):
+            return len(self.labels)
+
+    train_dataset = ClassificationDataset(train_encodings, train_labels)
+    eval_dataset = ClassificationDataset(test_encodings, test_labels)
 
     # Define compute metrics function
     def compute_metrics(eval_pred):
@@ -69,6 +57,24 @@ def fine_tune_model(iteration, model_name, train_texts, train_labels, test_texts
             'precision': precision,
             'recall': recall
         }
+
+    # Define training arguments
+    output_dir = f'./results_iteration_{iteration}'
+    logging_dir = f'./logs_iteration_{iteration}'
+    training_args = TrainingArguments(
+        output_dir=output_dir,
+        num_train_epochs=3,
+        per_device_train_batch_size=16,
+        per_device_eval_batch_size=16,
+        warmup_steps=100,
+        evaluation_strategy='epoch',
+        save_strategy='epoch',
+        logging_dir=logging_dir,
+        load_best_model_at_end=True,
+        metric_for_best_model='accuracy',
+        greater_is_better=True,
+        report_to='none',  # Disable reporting to wandb to prevent config errors
+    )
 
     # Initialize Trainer
     trainer = Trainer(
