@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Set environment variables for API keys
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_API_BASE = os.getenv("OPENAI_API_BASE")
+os.environ["OPENAI_API_KEY"] = "OPENAI_API_KEY"
+os.environ["OPENAI_API_BASE"] = "OPENAI_API_BASE"
 
 # Data file path
 DATA_FILE_PATH = 'data/psoriasis_papers_cleaned.xlsx'
