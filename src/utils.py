@@ -1,10 +1,31 @@
+# src/utils.py
+
 import re
 import numpy as np
+from sentence_transformers import SentenceTransformer
 from litellm import completion
 import src.config as config
-from bertopic import BERTopic
-from sentence_transformers import SentenceTransformer
 
+class CustomEmbeddingModel(SentenceTransformer):
+    def __init__(self, model_path):
+        super().__init__(model_path)
+    
+    def embed_documents(self, documents, verbose=False):
+        """
+        Generate embeddings for a list of documents.
+        """
+        return self.encode(
+            documents,
+            batch_size=16,
+            show_progress_bar=verbose,
+            convert_to_numpy=True
+        )
+    
+    def encode_embeddings(self, documents, batch_size=16, show_progress_bar=False, convert_to_numpy=True):
+        """
+        Alias for embed_documents to maintain compatibility.
+        """
+        return self.embed_documents(documents, verbose=show_progress_bar)
 
 def generate_topic_summaries(topic_model):
     topic_summaries = {}
@@ -60,7 +81,7 @@ def parse_gpt4_advice(advice):
     topics_to_split = []
 
     # Parse the advice using regular expressions
-    merge_match = re.search(r'Topics to Merge:\s*(\[.*?\])', advice, re.DOTALL)
+    merge_match = re.search(r'Topics to Merge:\s*(\[\(.*?\)\])', advice, re.DOTALL)
     if merge_match:
         merge_str = merge_match.group(1)
         try:
@@ -68,7 +89,7 @@ def parse_gpt4_advice(advice):
         except Exception as e:
             print("Error parsing Topics to Merge:", e)
 
-    split_match = re.search(r'Topics to Split:\s*(\[.*?\])', advice, re.DOTALL)
+    split_match = re.search(r'Topics to Split:\s*(\[\d+(?:, \d+)*\])', advice, re.DOTALL)
     if split_match:
         split_str = split_match.group(1)
         try:
@@ -77,69 +98,57 @@ def parse_gpt4_advice(advice):
             print("Error parsing Topics to Split:", e)
     return topics_to_merge, topics_to_split
 
-def update_topics_after_merging(topic_model, documents, topics_to_merge, embedding_model):
+def update_topics_after_merging(topic_model, documents, topics_to_merge):
+    current_topic_ids = topic_model.get_topic_info()['Topic'].tolist()
     for merge_pair in topics_to_merge:
         if isinstance(merge_pair, (tuple, list)) and len(merge_pair) >= 2:
-            merge_topics = list(merge_pair)
-            try:
-                topic_model.merge_topics(documents, merge_topics)
-                print(f"Merged topics {merge_topics}")
-            except Exception as e:
-                print(f"Error merging topics {merge_topics}: {e}")
+            # Check if both topics exist
+            if all(topic_id in current_topic_ids for topic_id in merge_pair):
+                try:
+                    topic_model.merge_topics(documents, list(merge_pair))
+                    print(f"Merged topics {merge_pair}")
+                except Exception as e:
+                    print(f"Error merging topics {merge_pair}: {e}")
+            else:
+                missing_topics = [tid for tid in merge_pair if tid not in current_topic_ids]
+                print(f"Cannot merge topics {merge_pair}: missing topics {missing_topics}")
         else:
             print(f"Invalid merge pair: {merge_pair}")
     topics, _ = topic_model.transform(documents)
     return topic_model, topics
 
-def update_topics_after_splitting(topic_model, documents, topics, topics_to_split, embedding_model):
+def update_topics_after_splitting(topic_model, documents, topics, topics_to_split):
     for topic_id in topics_to_split:
         # Get indices of documents belonging to the topic
         indices = [i for i, t in enumerate(topics) if t == topic_id]
         if not indices:
+            print(f"No documents found for topic {topic_id}. Skipping split.")
             continue
         # Extract documents to split
         docs_to_split = [documents[i] for i in indices]
+        num_docs = len(docs_to_split)
+        if num_docs < 2:
+            print(f"Not enough documents to split topic {topic_id} (only {num_docs} document). Skipping split.")
+            continue
         # Perform new topic modeling on these documents
-        sub_topic_model = BERTopic(
-            embedding_model=embedding_model,
-            language="english",
-            calculate_probabilities=True
-        )
-        sub_topics, _ = sub_topic_model.fit_transform(docs_to_split)
-        # Update the original topics
-        for idx, doc_idx in enumerate(indices):
-            topics[doc_idx] = f"{topic_id}_{sub_topics[idx]}"
-        print(f"Split topic {topic_id} into subtopics")
+        try:
+            sub_topics, _ = topic_model.fit_transform(docs_to_split)
+            # Update the original topics
+            for idx, doc_idx in enumerate(indices):
+                topics[doc_idx] = f"{topic_id}_{sub_topics[idx]}"
+            print(f"Split topic {topic_id} into subtopics")
+        except ValueError as ve:
+            print(f"ValueError while splitting topic {topic_id}: {ve}")
+        except Exception as e:
+            print(f"Unexpected error while splitting topic {topic_id}: {e}")
     return topics
 
 def create_custom_embedding_model(model_path):
-    encoder = AutoModel.from_pretrained(model_path)
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-
-    class CustomEmbeddingModel:
-        def __init__(self, model, tokenizer):
-            self.model = model
-            self.tokenizer = tokenizer
-
-        def embed_documents(self, documents, verbose=False):
-            embeddings = []
-            batch_size = 16
-            for i in range(0, len(documents), batch_size):
-                batch_texts = documents[i:i+batch_size]
-                inputs = self.tokenizer(
-                    batch_texts,
-                    padding=True,
-                    truncation=True,
-                    return_tensors="pt"
-                )
-                with torch.no_grad():
-                    outputs = self.model(**inputs)
-                batch_embeddings = outputs.last_hidden_state.mean(dim=1)
-                embeddings.extend(batch_embeddings.cpu().numpy())
-            return np.array(embeddings)
-
-    custom_embedding_model = CustomEmbeddingModel(model=encoder, tokenizer=tokenizer)
-    return custom_embedding_model
+    """
+    Create a CustomEmbeddingModel instance.
+    """
+    model = CustomEmbeddingModel(model_path)
+    return model
 
 def save_final_results(optimal_model_data, data, output_file):
     # Assign the final topics and summaries to the data
@@ -149,6 +158,8 @@ def save_final_results(optimal_model_data, data, output_file):
     data['Topic_Summary'] = [final_topic_summaries.get(topic, '') for topic in final_topics]
 
     # Save the data to an Excel file
+    data.to_excel(output_file, index=False)
+    print(f"\nFinal results have been saved to '{output_file}'.")
     data.to_excel(output_file, index=False)
     print(f"\nFinal results have been saved to '{output_file}'.")
 
