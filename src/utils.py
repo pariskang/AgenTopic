@@ -2,6 +2,7 @@ import re
 import numpy as np
 from litellm import completion
 import src.config as config
+from bertopic import BERTopic
 
 def generate_topic_summaries(topic_model):
     topic_summaries = {}
