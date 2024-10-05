@@ -1,12 +1,12 @@
 ###FulPhil
 
-import src.config as config
 from src.data_loader import load_data
 from src.embedding_model import initialize_embedding_model
 from src.topic_modeling import initial_topic_modeling
 from src.iterative_refinement import iterative_refinement
 from src.evaluation import select_optimal_model
 from src.utils import save_final_results
+import src.config as config
 
 def main():
     # Section 2: Load Data
@@ -25,6 +25,13 @@ def main():
 
     # Section 6: Select Optimal Model with GPT-4
     optimal_model_data = select_optimal_model(final_model_data)
+
+    # Section 7: Save Final Results
+    save_final_results(optimal_model_data, data, config.FINAL_DATA_FILE)
+
+if __name__ == "__main__":
+    main()
+
 
     # Section 7: Save Final Results
     save_final_results(optimal_model_data, data, config.FINAL_DATA_FILE)
