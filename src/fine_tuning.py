@@ -13,7 +13,19 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 def fine_tune_model(iteration, model_name, train_texts, train_labels, test_texts, test_labels, num_labels):
     """
-    Fine-tunes a pre-trained model for sequence classification.
+    Fine-tune a pre-trained model for sequence classification.
+
+    Args:
+        iteration (int): Current iteration number.
+        model_name (str): Name of the pre-trained model.
+        train_texts (list): List of training document texts.
+        train_labels (list): List of training labels.
+        test_texts (list): List of testing document texts.
+        test_labels (list): List of testing labels.
+        num_labels (int): Number of unique labels.
+
+    Returns:
+        str: Path to the fine-tuned model.
     """
     # Load pre-trained model and tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -22,7 +34,7 @@ def fine_tune_model(iteration, model_name, train_texts, train_labels, test_texts
         num_labels=num_labels
     )
 
-    # Tokenize the datasets
+    # Tokenize datasets
     train_encodings = tokenizer(train_texts, truncation=True, padding=True, return_tensors="pt")
     test_encodings = tokenizer(test_texts, truncation=True, padding=True, return_tensors="pt")
 
@@ -43,7 +55,7 @@ def fine_tune_model(iteration, model_name, train_texts, train_labels, test_texts
     train_dataset = ClassificationDataset(train_encodings, train_labels)
     eval_dataset = ClassificationDataset(test_encodings, test_labels)
 
-    # Define compute metrics function
+    # Define evaluation metrics
     def compute_metrics(eval_pred):
         logits, labels = eval_pred
         predictions = np.argmax(logits, axis=-1)
@@ -73,7 +85,7 @@ def fine_tune_model(iteration, model_name, train_texts, train_labels, test_texts
         load_best_model_at_end=True,
         metric_for_best_model='accuracy',
         greater_is_better=True,
-        report_to='none',  # Disable reporting to wandb to prevent config errors
+        report_to='none',  # Disable WandB reporting to prevent configuration errors
     )
 
     # Initialize Trainer
@@ -94,4 +106,5 @@ def fine_tune_model(iteration, model_name, train_texts, train_labels, test_texts
     tokenizer.save_pretrained(fine_tuned_model_path)
 
     return fine_tuned_model_path
+
         
