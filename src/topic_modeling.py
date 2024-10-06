@@ -4,7 +4,14 @@ from bertopic import BERTopic
 
 def initial_topic_modeling(documents, embedding_model):
     """
-    Performs initial topic modeling using BERTopic.
+    Perform initial topic modeling using BERTopic.
+
+    Args:
+        documents (list): List of document texts.
+        embedding_model (SentenceTransformer): Embedding model instance.
+
+    Returns:
+        tuple: Trained BERTopic model, list of topic assignments, and probabilities.
     """
     topic_model = BERTopic(
         embedding_model=embedding_model,
